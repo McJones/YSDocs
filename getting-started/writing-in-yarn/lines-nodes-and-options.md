@@ -209,3 +209,116 @@ Player: Sounds good!
 Separating dialogue segments into nodes can for neater files that are easier to edit as they grow.
 
 Sometimes it makes sense for the options presented or the outcomes of selecting different options to vary based on other things the player has done or said up until this point. This requires the use of **logic** and **variables**, which we'll discuss in the next section.
+
+# Automatic tagging of the last line before options
+
+Automatic last line before options tagging is a process Yarn Spinner performs to identify the final line of dialogue before a block of options.
+The intent of this is to allow custom dialogue views to perform any customisation your game might need before the options are presented.
+The automatic last line tagging works by adding a `#lastline` hashtag onto any line of dialogue that precedes options.
+Essentially this means that the following:
+
+```Yarn
+title: Start
+---
+here is a line right before some options
+
+-> Option 1
+-> Option 2
+===
+```
+
+Gets converted without any additional work by the writers into the following:
+
+```Yarn
+title: Start
+---
+here is a line right before some options #lastline
+
+-> Option 1
+-> Option 2
+===
+```
+
+This tagging occurs at the compilation (specifically string table generation) stage and the Yarn files themselves are unchanged.
+
+## Using the lastline tag
+
+The `lastline` hashtag has no special meaning or functionality inside of Yarn Spinner, after the compiler has finished it is another piece of line metadata like any other.
+You must determine what (if any) needs your game has for this metadata, and it can be safely ignored if you have no needs for it.
+
+Inside of Unity to access the lastline metadata through the `Metadata` property on the `LocalizedLine` class.
+
+```csharp
+public override void RunLine(LocalizedLine dialogueLine, Action onDialogueLineFinished)
+{
+    if(Array.IndexOf(dialogueLine.Metadata,"lastline") != -1)
+    {
+        // this is the line before options
+    }
+    else
+    {
+        // show line normally
+    }
+}
+```
+
+## Caveats
+
+The automatic tagging only works on dialogue lines that precede options, so if some other element (such as a command) in between the dialogue and options the tagger won't work.
+The work around for this is to manually tag any lines.
+As an example of this:
+
+```Yarn
+A: is it time?
+B: I think so
+
+<<walk to door>>
+
+-> Lets do it
+-> Give me a moment
+```
+
+Here the command `<<walk to door>>` is interrupting the automatic tagging from marking `B: I think so` as the last line before options.
+This can be fixed with manually tagging the line:
+```Yarn
+A: is it time?
+B: I think so #lastline
+
+<<walk to door>>
+
+-> Lets do it
+-> Give me a moment
+```
+
+This is also the case for larger blocks of dialogue where the lines must change based on the needs of the story:
+
+```Yarn
+A: is it time?
+B: I think so
+
+<<if $know_some_fact>>
+C: Definitely time
+<<endif>>
+
+-> Lets do it
+-> Give me a moment
+```
+
+In this case we can't know if line `B: I think so` or `C: Definitely time` is to be the last line before the block of options.
+The solution is to rework the Yarn into something like the following and manually tag the lines:
+
+```Yarn
+A: is it time?
+
+<<if $know_some_fact>>
+B: I think so
+C: Definitely time #lastline
+<<else>>
+B: I think so #lastline
+<<endif>>
+
+-> Lets do it
+-> Give me a moment
+```
+
+Yarn Spinner does not verify any manually `#lastline` tagged lines are actually the last line before options.
